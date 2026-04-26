@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>রামকৃষ্ণ আশ্রম ও রামকৃষ্ণ মিশন, ময়মনসিংহ · চাঁদা আদায় পঞ্জিকা</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕉</text></svg>" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Serif Bengali', 'Cormorant Garamond', Georgia, serif;
+    background: linear-gradient(160deg, #fef6e8 0%, #f5e6c8 50%, #ead7b0 100%);
+    min-height: 100vh;
+    color: #3d2817;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+    z-index: 1;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+  
+  /* PRINT STYLES — proper fix for printing */
+  @media print {
+    @page { margin: 1cm; size: A4; }
+    body { background: #fff !important; color: #000 !important; }
+    body::before { display: none !important; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    
+    /* Hide everything except printable area */
+    body > #root > .app-shell > *:not(.print-area) { display: none !important; }
+    
+    /* When printing profile, only show profile content */
+    .profile-print-mode .profile-overlay {
+      position: static !important;
+      background: #fff !important;
+      backdrop-filter: none !important;
+      padding: 0 !important;
+    }
+    .profile-print-mode .profile-page {
+      box-shadow: none !important;
+      border: 1px solid #999 !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
+    .profile-print-mode body > *:not(:has(.profile-overlay)) { display: none !important; }
+  }
+  .print-only { display: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_BN = {
+  Jan: "জানুয়ারি", Feb: "ফেব্রুয়ারি", Mar: "মার্চ", Apr: "এপ্রিল",
+  May: "মে", Jun: "জুন", Jul: "জুলাই", Aug: "আগস্ট",
+  Sep: "সেপ্টেম্বর", Oct: "অক্টোবর", Nov: "নভেম্বর", Dec: "ডিসেম্বর"
+};
+const NOW = new Date();
+const CURRENT_YEAR = NOW.getFullYear();
+const CURRENT_MONTH = NOW.getMonth();
+const URL_KEY = "rk_url";
+const PW_KEY = "rk_pw";
+const COVER_KEY = "rk_cover";
+// Default cover image — looks for cover.jpg in the same folder as index.html
+const DEFAULT_COVER = "cover.jpg";
+const INFO_FIELDS = ["Name", "Mobile", "Address", "SpouseName", "SpouseMobile", "ChildrenSiblings", "InitiationGuru"];
+
+const toBn = (n) => String(n).replace(/[0-9]/g, d => "০১২৩৪৫৬৭৮৯"[d]);
+
+const getDonation = (donations, devoteeRow, year, month) =>
+  donations.find(d => d.DevoteeRow == devoteeRow && d.Year == year && d.Month === month);
+
+const getTotalForYear = (donations, devoteeRow, year) =>
+  donations.filter(d => d.DevoteeRow == devoteeRow && d.Year == year)
+    .reduce((s, d) => s + (parseFloat(d.Amount) || 0), 0);
+
+const getDueMonths = (donations, devoteeRow, year) => {
+  const lastMonth = year == CURRENT_YEAR ? CURRENT_MONTH : 11;
+  return MONTHS.slice(0, lastMonth + 1).filter(m => {
+    const d = getDonation(donations, devoteeRow, year, m);
+    return !d || !d.Amount || d.Amount == 0;
+  });
+};
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN SCREEN
+// ═══════════════════════════════════════════════════════════════
+function LoginScreen({ onLogin, defaultUrl, coverUrl }) {
+  const [url, setUrl] = useState(defaultUrl || "");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(!defaultUrl);
+
+  const tryLogin = async () => {
+    if (!url || !password) { setError("URL এবং পাসওয়ার্ড উভয়ই প্রয়োজন"); return; }
+    setError(""); setLoading(true);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        body: JSON.stringify({ action: "login", pw: password }),
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+      });
+      const json = await res.json();
+      if (json.status === "ok") {
+        localStorage.setItem(URL_KEY, url);
+        localStorage.setItem(PW_KEY, password);
+        onLogin(url, password);
+      } else {
+        setError("⚠ ভুল পাসওয়ার্ড · Wrong password");
+      }
+    } catch {
+      setError("⚠ সংযোগ ব্যর্থ · Connection failed. Check URL.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={styles.loginPage}>
+      {coverUrl && <img src={coverUrl} style={styles.loginCover} alt="cover" />}
+      <div style={styles.loginCard}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 50, marginBottom: 6 }}>🕉</div>
+          <h2 style={{ margin: 0, fontSize: 20, color: "#5a2a0c", fontWeight: 700, lineHeight: 1.4 }}>রামকৃষ্ণ আশ্রম ও<br/>রামকৃষ্ণ মিশন, ময়মনসিংহ</h2>
+          <div style={{ fontSize: 12, color: "#a87145", letterSpacing: "2px", marginTop: 4 }}>মাসিক চাঁদা পঞ্জিকা · LOGIN</div>
+          <div style={{ marginTop: 10, fontSize: 30, color: "rgba(180, 90, 30, 0.4)" }}>❦ ॐ ❦</div>
+        </div>
+
+        <label style={styles.label}>🔐 পাসওয়ার্ড · Password</label>
+        <input type="password" autoFocus style={styles.input} value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && tryLogin()}
+          placeholder="পাসওয়ার্ড দিন" />
+
+        {showSettings && (
+          <>
+            <label style={{ ...styles.label, marginTop: 12 }}>🔗 Apps Script URL</label>
+            <input style={styles.input} value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec" />
+          </>
+        )}
+
+        {error && <div style={styles.errorBox}>{error}</div>}
+
+        <button style={{ ...styles.btn, ...styles.btnPrimary, width: "100%", marginTop: 16, padding: "13px" }}
+          onClick={tryLogin} disabled={loading}>
+          {loading ? "যাচাই হচ্ছে..." : "🪷 প্রবেশ করুন · Enter"}
+        </button>
+
+        {!showSettings && (
+          <button onClick={() => setShowSettings(true)}
+            style={{ ...styles.linkBtn, marginTop: 12, fontSize: 11, opacity: 0.6 }}>
+            ⚙ URL পরিবর্তন করুন
+          </button>
+        )}
+
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 11, color: "#a87145", fontStyle: "italic" }}>
+          "যত মত, তত পথ"<br/>— শ্রী শ্রী রামকৃষ্ণ
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function Dashboard({ devotees, donations, year, onNavigate }) {
+  const stats = useMemo(() => {
+    const totalDevotees = devotees.length;
+    const yearDonations = donations.filter(d => d.Year == year);
+    const totalCollected = yearDonations.reduce((s, d) => s + (parseFloat(d.Amount) || 0), 0);
+    const lastYearTotal = donations.filter(d => d.Year == year - 1).reduce((s, d) => s + (parseFloat(d.Amount) || 0), 0);
+    const growth = lastYearTotal > 0 ? Math.round(((totalCollected - lastYearTotal) / lastYearTotal) * 100) : 0;
+    
+    const monthlyTotals = MONTHS.map(m => ({
+      month: m,
+      amount: yearDonations.filter(d => d.Month === m).reduce((s, d) => s + (parseFloat(d.Amount) || 0), 0),
+      count: yearDonations.filter(d => d.Month === m && d.Amount > 0).length
+    }));
+    const maxMonthly = Math.max(1, ...monthlyTotals.map(m => m.amount));
+    
+    // Per-guru analytics
+    const guruStats = {};
+    devotees.forEach(d => {
+      const g = d.InitiationGuru || "অজানা · Unknown";
+      if (!guruStats[g]) guruStats[g] = { total: 0, devotees: 0, name: g };
+      guruStats[g].devotees++;
+      guruStats[g].total += getTotalForYear(donations, d._row, year);
+    });
+    const sortedGurus = Object.values(guruStats).sort((a, b) => b.total - a.total);
+    const maxGuruTotal = Math.max(1, ...sortedGurus.map(g => g.total));
+    
+    // Top donors
+    const donorTotals = devotees.map(d => ({
+      ...d,
+      yearTotal: getTotalForYear(donations, d._row, year)
+    })).filter(d => d.yearTotal > 0).sort((a, b) => b.yearTotal - a.yearTotal).slice(0, 10);
+    
+    // Current month status
+    const currentMonthDue = devotees.filter(d => {
+      if (year != CURRENT_YEAR) return false;
+      const entry = getDonation(donations, d._row, year, MONTHS[CURRENT_MONTH]);
+      return !entry || !entry.Amount || entry.Amount == 0;
+    });
+    
+    return { totalDevotees, totalCollected, lastYearTotal, growth, monthlyTotals, maxMonthly, sortedGurus, maxGuruTotal, donorTotals, currentMonthDue };
+  }, [devotees, donations, year]);
+
+  return (
+    <div>
+      {/* Hero stats */}
+      <div style={styles.dashHeroGrid}>
+        <div style={{ ...styles.dashHero, background: "linear-gradient(135deg, #8b4513, #c9893d)" }}>
+          <div style={styles.dashHeroIcon}>🪷</div>
+          <div style={styles.dashHeroNum}>৳{stats.totalCollected.toLocaleString()}</div>
+          <div style={styles.dashHeroLabel}>সংগ্রহ {toBn(year)} · Collected {year}</div>
+          {stats.growth !== 0 && (
+            <div style={styles.dashHeroDelta}>
+              {stats.growth > 0 ? "↑" : "↓"} {Math.abs(stats.growth)}% গত বছর থেকে
+            </div>
+          )}
+        </div>
+        <div style={{ ...styles.dashHero, background: "linear-gradient(135deg, #5a3a8a, #8e6db5)" }}>
+          <div style={styles.dashHeroIcon}>🙏</div>
+          <div style={styles.dashHeroNum}>{toBn(stats.totalDevotees)}</div>
+          <div style={styles.dashHeroLabel}>মোট ভক্ত · Total Devotees</div>
+        </div>
+        <div style={{ ...styles.dashHero, background: "linear-gradient(135deg, #27632a, #4a8a4d)" }}>
+          <div style={styles.dashHeroIcon}>📊</div>
+          <div style={styles.dashHeroNum}>৳{Math.round(stats.totalCollected / 12).toLocaleString()}</div>
+          <div style={styles.dashHeroLabel}>মাসিক গড় · Monthly Avg</div>
+        </div>
+        <div style={{ ...styles.dashHero, background: "linear-gradient(135deg, #a02828, #c0392b)", cursor: stats.currentMonthDue.length ? "pointer" : "default" }}
+          onClick={() => stats.currentMonthDue.length && onNavigate("dues")}>
+          <div style={styles.dashHeroIcon}>⚠</div>
+          <div style={styles.dashHeroNum}>{toBn(stats.currentMonthDue.length)}</div>
+          <div style={styles.dashHeroLabel}>{MONTHS_BN[MONTHS[CURRENT_MONTH]]} বকেয়া · This Month Due</div>
+        </div>
+      </div>
+
+      {/* Monthly Collection Chart */}
+      <div style={styles.dashCard}>
+        <h3 style={styles.dashTitle}>📈 মাসিক সংগ্রহ · Monthly Collection {toBn(year)}</h3>
+        <div style={styles.barChart}>
+          {stats.monthlyTotals.map(m => {
+            const heightPct = (m.amount / stats.maxMonthly) * 100;
+            const isCurrent = year == CURRENT_YEAR && m.month === MONTHS[CURRENT_MONTH];
+            return (
+              <div key={m.month} style={styles.barCol}>
+                <div style={{ fontSize: 10, color: "#5a2a0c", fontWeight: 700, marginBottom: 4 }}>
+                  {m.amount > 0 ? `৳${m.amount >= 1000 ? (m.amount/1000).toFixed(1)+'k' : m.amount}` : ""}
+                </div>
+                <div style={styles.barWrap}>
+                  <div style={{
+                    ...styles.bar,
+                    height: m.amount > 0 ? `${Math.max(heightPct, 3)}%` : "0%",
+                    background: isCurrent
+                      ? "linear-gradient(180deg, #ffd591, #c9893d)"
+                      : "linear-gradient(180deg, #b5d4a0, #27632a)",
+                  }}></div>
+                </div>
+                <div style={styles.barLabel}>
+                  <div style={{ fontSize: 10, fontWeight: 600 }}>{MONTHS_BN[m.month].slice(0, 3)}</div>
+                  <div style={{ fontSize: 9, opacity: 0.6 }}>{toBn(m.count)} জন</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+        {/* Top Gurus */}
+        <div style={styles.dashCard}>
+          <h3 style={styles.dashTitle}>🕉 দীক্ষা গুরু অনুসারে · Top Gurus by Collection</h3>
+          {stats.sortedGurus.length === 0 ? (
+            <p style={{ color: "#a87145", textAlign: "center" }}>কোনো ডেটা নেই</p>
+          ) : stats.sortedGurus.slice(0, 8).map((g, i) => (
+            <div key={i} style={styles.guruRow}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#5a2a0c" }}>{g.name}</div>
+                <div style={{ fontSize: 11, color: "#a87145" }}>{toBn(g.devotees)} জন ভক্ত</div>
+              </div>
+              <div style={{ flex: 1.5, paddingLeft: 12 }}>
+                <div style={{ height: 22, background: "#f5e6c8", borderRadius: 4, position: "relative", overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${(g.total / stats.maxGuruTotal) * 100}%`,
+                    background: i === 0 ? "linear-gradient(90deg, #c9893d, #8b4513)" : "linear-gradient(90deg, #b5d4a0, #27632a)",
+                    borderRadius: 4
+                  }}></div>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 11, fontWeight: 700, color: "#3d2817" }}>
+                    ৳{g.total.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Top Donors */}
+        <div style={styles.dashCard}>
+          <h3 style={styles.dashTitle}>🌟 শীর্ষ দাতা · Top Donors {toBn(year)}</h3>
+          {stats.donorTotals.length === 0 ? (
+            <p style={{ color: "#a87145", textAlign: "center" }}>কোনো ডেটা নেই</p>
+          ) : stats.donorTotals.map((d, i) => (
+            <div key={i} style={styles.topDonor}>
+              <div style={{ ...styles.donorRank, background: i === 0 ? "#c9893d" : i === 1 ? "#a87145" : i === 2 ? "#8b6f47" : "#d4a574" }}>
+                {toBn(i + 1)}
+              </div>
+              <div style={{ flex: 1, marginLeft: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#5a2a0c" }}>{d.Name}</div>
+                <div style={{ fontSize: 10, color: "#a87145" }}>{d.InitiationGuru || "—"}</div>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#27632a" }}>৳{d.yearTotal.toLocaleString()}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LEDGER (Bank-statement style)
+// ═══════════════════════════════════════════════════════════════
+function Ledger({ devotees, donations, year }) {
+  const entries = useMemo(() => {
+    const yr = donations.filter(d => d.Year == year && d.Amount && d.Amount != 0)
+      .map(d => {
+        const dev = devotees.find(de => de._row == d.DevoteeRow);
+        return {
+          ...d,
+          devoteeName: dev?.Name || "—",
+          guru: dev?.InitiationGuru || "",
+          mobile: dev?.Mobile || "",
+          dateObj: d.Date ? new Date(d.Date) : new Date(0)
+        };
+      })
+      .sort((a, b) => a.dateObj - b.dateObj);
+    
+    let running = 0;
+    return yr.map(e => {
+      running += parseFloat(e.Amount) || 0;
+      return { ...e, running };
+    });
+  }, [devotees, donations, year]);
+
+  const grandTotal = entries.length > 0 ? entries[entries.length - 1].running : 0;
+
+  return (
+    <div>
+      <div style={styles.ledgerHeader}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 18, color: "#5a2a0c", fontWeight: 700 }}>
+            📑 চাঁদা আদায় খতিয়ান · Donation Ledger
+          </h3>
+          <div style={{ fontSize: 12, color: "#a87145", marginTop: 4 }}>
+            বছর: {toBn(year)} · মোট লেনদেন: {toBn(entries.length)} টি
+          </div>
+        </div>
+        <div style={styles.ledgerTotal}>
+          <div style={{ fontSize: 11, color: "#fff5e0", opacity: 0.85 }}>সর্বমোট · GRAND TOTAL</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#fff5e0" }}>৳{grandTotal.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div style={styles.ledgerWrap}>
+        {entries.length === 0 ? (
+          <div style={styles.empty}>
+            <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 8 }}>📜</div>
+            <p>কোনো লেনদেন পাওয়া যায়নি · No transactions for {toBn(year)}</p>
+          </div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>#</th>
+                <th style={styles.th}>তারিখ · Date</th>
+                <th style={styles.th}>ভক্তের নাম · Devotee</th>
+                <th style={styles.th}>মাস · Month</th>
+                <th style={styles.th}>রসিদ নং</th>
+                <th style={{ ...styles.th, textAlign: "right" }}>চাঁদা · Amount</th>
+                <th style={{ ...styles.th, textAlign: "right" }}>চলমান যোগ · Running</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((e, i) => (
+                <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                  <td style={{ ...styles.td, color: "#a87145", fontSize: 11 }}>{toBn(i + 1)}</td>
+                  <td style={{ ...styles.td, fontFamily: "monospace", fontSize: 12 }}>
+                    {e.Date || "—"}
+                  </td>
+                  <td style={{ ...styles.td, fontWeight: 700 }}>
+                    {e.devoteeName}
+                    {e.guru && <div style={{ fontSize: 10, color: "#a87145", fontWeight: 400 }}>🕉 {e.guru}</div>}
+                  </td>
+                  <td style={styles.td}>{MONTHS_BN[e.Month] || e.Month}</td>
+                  <td style={{ ...styles.td, fontFamily: "monospace", fontSize: 12 }}>{e.ReceiptNo || "—"}</td>
+                  <td style={{ ...styles.td, textAlign: "right", fontWeight: 700, color: "#27632a" }}>
+                    +৳{(parseFloat(e.Amount) || 0).toLocaleString()}
+                  </td>
+                  <td style={{ ...styles.td, textAlign: "right", fontWeight: 800, color: "#5a2a0c", background: "#fef6e8" }}>
+                    ৳{e.running.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: "linear-gradient(135deg, #8b4513, #c9893d)" }}>
+                <td colSpan="5" style={{ ...styles.td, color: "#fff5e0", fontWeight: 800, padding: "14px 8px", fontSize: 14 }}>
+                  সর্বমোট · TOTAL
+                </td>
+                <td style={{ ...styles.td, color: "#fff5e0", fontWeight: 800, textAlign: "right", padding: "14px 8px", fontSize: 14 }}>
+                  ৳{grandTotal.toLocaleString()}
+                </td>
+                <td style={{ ...styles.td, padding: "14px 8px" }}></td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DUES (Current month due reminder)
+// ═══════════════════════════════════════════════════════════════
+function DuesView({ devotees, donations, onView, onSendReminder }) {
+  const dueData = useMemo(() => {
+    const thisMonth = MONTHS[CURRENT_MONTH];
+    const thisMonthDue = devotees.filter(d => {
+      const entry = getDonation(donations, d._row, CURRENT_YEAR, thisMonth);
+      return !entry || !entry.Amount || entry.Amount == 0;
+    });
+    
+    const allYearDue = devotees.map(d => ({
+      ...d,
+      dueMonths: getDueMonths(donations, d._row, CURRENT_YEAR),
+      yearTotal: getTotalForYear(donations, d._row, CURRENT_YEAR)
+    })).filter(d => d.dueMonths.length > 0);
+    
+    return { thisMonthDue, allYearDue };
+  }, [devotees, donations]);
+
+  return (
+    <div>
+      <div style={styles.duesAlert}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#fff5e0", opacity: 0.9, letterSpacing: "1px" }}>
+              ⚠ {MONTHS_BN[MONTHS[CURRENT_MONTH]]} {toBn(CURRENT_YEAR)} · CURRENT MONTH DUES
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#fff5e0", marginTop: 4 }}>
+              {toBn(dueData.thisMonthDue.length)} জন ভক্তের চাঁদা বাকি
+            </div>
+          </div>
+          <div style={{ fontSize: 50 }}>🔔</div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={{ ...styles.dashCard, padding: 18 }}>
+          <div style={{ fontSize: 12, color: "#a87145", letterSpacing: "1px" }}>📅 এই মাসের বকেয়া</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#a02828", marginTop: 4 }}>
+            {toBn(dueData.thisMonthDue.length)}
+          </div>
+          <div style={{ fontSize: 11, color: "#a87145" }}>জন ভক্ত · {MONTHS_BN[MONTHS[CURRENT_MONTH]]}</div>
+        </div>
+        <div style={{ ...styles.dashCard, padding: 18 }}>
+          <div style={{ fontSize: 12, color: "#a87145", letterSpacing: "1px" }}>📊 সারা বছরের বকেয়া</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#c0392b", marginTop: 4 }}>
+            {toBn(dueData.allYearDue.length)}
+          </div>
+          <div style={{ fontSize: 11, color: "#a87145" }}>জন ভক্ত · {toBn(CURRENT_YEAR)} সালে</div>
+        </div>
+      </div>
+
+      <div style={styles.dashCard}>
+        <h3 style={styles.dashTitle}>
+          🔔 {MONTHS_BN[MONTHS[CURRENT_MONTH]]} মাসের বকেয়াদার তালিকা
+        </h3>
+        {dueData.thisMonthDue.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 30, color: "#27632a" }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>
+            <div style={{ fontWeight: 700 }}>চমৎকার! এই মাসে কোনো বকেয়া নেই।</div>
+            <div style={{ fontSize: 12, color: "#a87145", marginTop: 4 }}>All devotees are up to date for this month</div>
+          </div>
+        ) : (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>নাম · Name</th>
+                  <th style={styles.th}>মোবাইল</th>
+                  <th style={styles.th}>দীক্ষা গুরু</th>
+                  <th style={styles.th}>মোট বকেয়া</th>
+                  <th style={styles.th}>স্মরণিকা</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dueData.thisMonthDue.map((d, i) => {
+                  const allDue = getDueMonths(donations, d._row, CURRENT_YEAR);
+                  return (
+                    <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                      <td style={styles.tdName}>
+                        <span style={styles.clickableLink} onClick={() => onView(d)}>{d.Name}</span>
+                      </td>
+                      <td style={styles.td}>{d.Mobile || "—"}</td>
+                      <td style={styles.td}>{d.InitiationGuru || "—"}</td>
+                      <td style={styles.td}>
+                        <span style={styles.dueBadge}>{toBn(allDue.length)} মাস</span>
+                      </td>
+                      <td style={styles.td}>
+                        <button style={{ ...styles.miniBtn, background: "linear-gradient(135deg, #25d366, #128c7e)" }}
+                          onClick={() => onSendReminder(d, CURRENT_YEAR)} disabled={!d.Mobile && !d.SpouseMobile}>
+                          💬 WhatsApp
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEVOTEE FORM
+// ═══════════════════════════════════════════════════════════════
+function DevoteeForm({ onSubmit, editData, onCancel }) {
+  const empty = { Name:"", Mobile:"", Address:"", SpouseName:"", SpouseMobile:"", ChildrenSiblings:"", InitiationGuru:"" };
+  const [form, setForm] = useState(editData || empty);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  return (
+    <div style={styles.formCard}>
+      <h3 style={styles.formTitle}>
+        {editData ? "✎ ভক্তের তথ্য সংশোধন · Edit Devotee" : "✚ নতুন ভক্ত যোগ করুন · Add New Devotee"}
+      </h3>
+      <div style={styles.sectionTitle}>ব্যক্তিগত তথ্য · Personal</div>
+      <div style={styles.formGrid}>
+        <div><label style={styles.label}>চাঁদাদাতার নাম · Full Name *</label>
+          <input style={styles.input} value={form.Name} onChange={e => set("Name", e.target.value)} placeholder="পূর্ণ নাম" /></div>
+        <div><label style={styles.label}>মোবাইল নং · Mobile</label>
+          <input style={styles.input} value={form.Mobile} onChange={e => set("Mobile", e.target.value)} placeholder="01XXXXXXXXX" /></div>
+        <div style={{ gridColumn: "1 / -1" }}><label style={styles.label}>ঠিকানা · Address</label>
+          <textarea style={{ ...styles.input, minHeight: 60, resize: "vertical" }} value={form.Address}
+            onChange={e => set("Address", e.target.value)} /></div>
+      </div>
+      <div style={styles.sectionTitle}>পারিবারিক তথ্য · Family</div>
+      <div style={styles.formGrid}>
+        <div><label style={styles.label}>স্ত্রী/স্বামীর নাম · Spouse</label>
+          <input style={styles.input} value={form.SpouseName} onChange={e => set("SpouseName", e.target.value)} /></div>
+        <div><label style={styles.label}>স্ত্রী/স্বামীর মোবাইল</label>
+          <input style={styles.input} value={form.SpouseMobile} onChange={e => set("SpouseMobile", e.target.value)} /></div>
+        <div style={{ gridColumn: "1 / -1" }}><label style={styles.label}>সন্তান / ভাইবোন · Children/Siblings</label>
+          <textarea style={{ ...styles.input, minHeight: 50, resize: "vertical" }} value={form.ChildrenSiblings}
+            onChange={e => set("ChildrenSiblings", e.target.value)} /></div>
+      </div>
+      <div style={styles.sectionTitle}>আধ্যাত্মিক তথ্য · Spiritual</div>
+      <div>
+        <label style={styles.label}>দীক্ষা গুরু · Diksha Guru</label>
+        <input style={styles.input} value={form.InitiationGuru} onChange={e => set("InitiationGuru", e.target.value)} />
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "center" }}>
+        <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => onSubmit(form)}>
+          {editData ? "✓ আপডেট" : "✓ ভক্ত যোগ করুন"}
+        </button>
+        {onCancel && <button style={{ ...styles.btn, ...styles.btnGhost }} onClick={onCancel}>বাতিল</button>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DONATION ENTRY MODAL
+// ═══════════════════════════════════════════════════════════════
+function DonationEntryModal({ devotee, year, month, existing, onSave, onClose, onDelete }) {
+  const [amount, setAmount] = useState(existing?.Amount || "");
+  const [receiptNo, setReceiptNo] = useState(existing?.ReceiptNo || "");
+  const [date, setDate] = useState(existing?.Date || new Date().toISOString().slice(0, 10));
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={{ ...styles.modal, maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalHeader}>
+          <div>
+            <h3 style={{ margin: 0, color: "#fff5e0", fontSize: 17 }}>{devotee.Name}</h3>
+            <div style={{ fontSize: 12, color: "#ffd591", marginTop: 4 }}>
+              🪷 {MONTHS_BN[month]} {toBn(year)}
+            </div>
+          </div>
+          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: 22 }}>
+          <label style={styles.label}>চাঁদার পরিমাণ · Amount (৳)</label>
+          <input style={styles.input} type="number" autoFocus value={amount}
+            onChange={e => setAmount(e.target.value)} placeholder="500" />
+          <label style={{ ...styles.label, marginTop: 14 }}>রসিদ নং · Receipt No.</label>
+          <input style={styles.input} value={receiptNo}
+            onChange={e => setReceiptNo(e.target.value)} placeholder="R-0042" />
+          <label style={{ ...styles.label, marginTop: 14 }}>তারিখ · Date</label>
+          <input style={styles.input} type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...styles.btn, ...styles.btnPrimary }}
+                onClick={() => onSave({ amount, receiptNo, date })}>✓ সংরক্ষণ</button>
+              <button style={{ ...styles.btn, ...styles.btnGhost }} onClick={onClose}>বাতিল</button>
+            </div>
+            {existing && (
+              <button style={{ ...styles.btn, background: "#fde8e8", color: "#a02828", border: "1.5px solid #e8b8b8" }}
+                onClick={() => { if (confirm("মুছে ফেলবেন?")) onDelete(); }}>🗑 মুছুন</button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REMINDER MODAL
+// ═══════════════════════════════════════════════════════════════
+function ReminderModal({ devotee, donations, year, onClose }) {
+  const dueMonths = getDueMonths(donations, devotee._row, year);
+  const [customMessage, setCustomMessage] = useState("");
+  const [recipient, setRecipient] = useState("self");
+  const targetPhone = recipient === "self" ? devotee.Mobile : devotee.SpouseMobile;
+  const targetName = recipient === "self" ? devotee.Name : devotee.SpouseName;
+
+  const defaultMessage = `🕉 প্রণাম ${targetName || ""}!
+
+রামকৃষ্ণ আশ্রম ও রামকৃষ্ণ মিশন, ময়মনসিংহ থেকে শুভেচ্ছা।
+
+আপনার ${toBn(year)} সালের ${dueMonths.length > 0 ? toBn(dueMonths.length) + " মাসের চাঁদা বকেয়া রয়েছে:" : "চাঁদার তথ্য:"}
+${dueMonths.map(m => `• ${MONTHS_BN[m]}`).join("\n")}
+
+দয়া করে সুবিধামত সময়ে চাঁদা পরিশোধের ব্যবস্থা করবেন।
+
+ধন্যবাদ ও শুভকামনা 🙏
+"যত মত, তত পথ" — শ্রী শ্রী রামকৃষ্ণ`;
+
+  const message = customMessage || defaultMessage;
+
+  const formatForWhatsApp = (phone) => {
+    if (!phone) return "";
+    let cleaned = phone.replace(/[^0-9]/g, "");
+    if (cleaned.startsWith("0")) cleaned = "880" + cleaned.slice(1);
+    return cleaned;
+  };
+
+  const sendWhatsApp = () => {
+    const phone = formatForWhatsApp(targetPhone);
+    if (!phone) { alert("মোবাইল নং পাওয়া যায়নি"); return; }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+  };
+  const sendSMS = () => {
+    if (!targetPhone) { alert("মোবাইল নং পাওয়া যায়নি"); return; }
+    window.location.href = `sms:${targetPhone}?body=${encodeURIComponent(message)}`;
+  };
+  const copyMessage = () => {
+    navigator.clipboard.writeText(message).then(() => alert("✓ কপি হয়েছে"));
+  };
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={{ ...styles.modal, maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalHeader}>
+          <h3 style={{ margin: 0, color: "#fff5e0", fontSize: 17 }}>📨 বকেয়া স্মরণিকা</h3>
+          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: 22 }}>
+          <label style={styles.label}>প্রাপক · Recipient</label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <button onClick={() => setRecipient("self")}
+              style={{ ...styles.toggleBtn, ...(recipient === "self" ? styles.toggleBtnActive : {}) }}>
+              {devotee.Name} {devotee.Mobile && `(${devotee.Mobile})`}
+            </button>
+            {devotee.SpouseName && devotee.SpouseMobile && (
+              <button onClick={() => setRecipient("spouse")}
+                style={{ ...styles.toggleBtn, ...(recipient === "spouse" ? styles.toggleBtnActive : {}) }}>
+                {devotee.SpouseName} ({devotee.SpouseMobile})
+              </button>
+            )}
+          </div>
+          <label style={styles.label}>বার্তা · Message</label>
+          <textarea style={{ ...styles.input, minHeight: 200, resize: "vertical", lineHeight: 1.6 }}
+            value={message} onChange={e => setCustomMessage(e.target.value)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 18 }}>
+            <button style={{ ...styles.btn, background: "linear-gradient(135deg, #25d366, #128c7e)", color: "#fff" }}
+              onClick={sendWhatsApp} disabled={!targetPhone}>💬 WhatsApp</button>
+            <button style={{ ...styles.btn, background: "linear-gradient(135deg, #4a90e2, #357abd)", color: "#fff" }}
+              onClick={sendSMS} disabled={!targetPhone}>📱 SMS</button>
+            <button style={{ ...styles.btn, ...styles.btnGhost }} onClick={copyMessage}>📋 কপি</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEVOTEE TABLE
+// ═══════════════════════════════════════════════════════════════
+function DevoteeTable({ devotees, donations, year, onView, onEdit, onCellClick, onDelete }) {
+  if (!devotees.length) return (
+    <div style={styles.empty}>
+      <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 8 }}>🪷</div>
+      <p>কোনো ভক্ত পাওয়া যায়নি</p>
+    </div>
+  );
+  return (
+    <div style={styles.tableWrap}>
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={styles.th}>নাম</th>
+            <th style={styles.th}>মোবাইল</th>
+            <th style={styles.th}>দীক্ষা গুরু</th>
+            {MONTHS.map(m => <th key={m} style={{
+              ...styles.th,
+              background: (year == CURRENT_YEAR && m === MONTHS[CURRENT_MONTH]) ? "linear-gradient(180deg, #ffd591, #f5b970)" : "#f5e6c8",
+              color: (year == CURRENT_YEAR && m === MONTHS[CURRENT_MONTH]) ? "#5a2a0c" : "#8b4513",
+            }}>
+              <div style={{ fontSize: 10 }}>{MONTHS_BN[m].slice(0, 4)}</div>
+              <div style={{ fontSize: 9, opacity: 0.6 }}>{m}</div>
+            </th>)}
+            <th style={styles.th}>মোট</th>
+            <th style={styles.th}>বকেয়া</th>
+            <th style={styles.th}>কার্য</th>
+          </tr>
+        </thead>
+        <tbody>
+          {devotees.map((d, i) => {
+            const dueMonths = getDueMonths(donations, d._row, year);
+            const total = getTotalForYear(donations, d._row, year);
+            return (
+              <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                <td style={styles.tdName}>
+                  <span style={styles.clickableLink} onClick={() => onView(d)}>{d.Name}</span>
+                </td>
+                <td style={styles.td}>
+                  {d.Mobile ? <span style={styles.clickableLink} onClick={() => onView(d)}>{d.Mobile}</span> : "—"}
+                </td>
+                <td style={styles.td}>{d.InitiationGuru}</td>
+                {MONTHS.map(m => {
+                  const entry = getDonation(donations, d._row, year, m);
+                  const paid = entry && entry.Amount && entry.Amount != 0;
+                  const isCurrent = year == CURRENT_YEAR && m === MONTHS[CURRENT_MONTH];
+                  return (
+                    <td key={m} style={{
+                      ...styles.td, textAlign: "center", cursor: "pointer",
+                      background: isCurrent ? "rgba(255, 213, 145, 0.3)" : undefined
+                    }} onClick={() => onCellClick(d, year, m, entry)}>
+                      {paid ? <span style={styles.paid}>৳{entry.Amount}</span> : <span style={styles.unpaid}>—</span>}
+                    </td>
+                  );
+                })}
+                <td style={{ ...styles.td, fontWeight: 700, color: "#27632a" }}>৳{total.toLocaleString()}</td>
+                <td style={styles.td}>
+                  {dueMonths.length > 0
+                    ? <span style={styles.dueBadge}>{toBn(dueMonths.length)}</span>
+                    : <span style={styles.paidBadge}>✓</span>}
+                </td>
+                <td style={styles.td}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button style={styles.iconBtn} onClick={() => onView(d)} title="প্রোফাইল">👁</button>
+                    <button style={styles.iconBtn} onClick={() => onEdit(d)} title="সম্পাদনা">✎</button>
+                    <button style={styles.iconBtn} onClick={() => onDelete(d)} title="মুছুন">🗑</button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEARCH BAR
+// ═══════════════════════════════════════════════════════════════
+function SearchBar({ filters, setFilters, year, setYear, availableYears, gurus }) {
+  const hasFilters = Object.values(filters).some(v => v);
+  return (
+    <div style={styles.searchCard}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 17, color: "#5a2a0c", fontWeight: 700 }}>🔍 অনুসন্ধান · Search</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#fef6e8", padding: "6px 14px", borderRadius: 10, border: "1.5px solid #c9893d" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#5a2a0c" }}>📅 বছর:</span>
+          <select value={year} onChange={e => setYear(parseInt(e.target.value))}
+            style={{ padding: "5px 12px", border: "1px solid #d4a574", borderRadius: 6, background: "#fff", fontSize: 14, fontWeight: 700, color: "#8b4513", fontFamily: "inherit" }}>
+            {availableYears.map(y => <option key={y} value={y}>{toBn(y)} · {y}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={styles.searchGrid}>
+        <div><label style={styles.label}>নাম</label>
+          <input style={styles.input} placeholder="নাম..." value={filters.name}
+            onChange={e => setFilters(f => ({ ...f, name: e.target.value }))} /></div>
+        <div><label style={styles.label}>মোবাইল</label>
+          <input style={styles.input} placeholder="মোবাইল..." value={filters.mobile}
+            onChange={e => setFilters(f => ({ ...f, mobile: e.target.value }))} /></div>
+        <div><label style={styles.label}>ঠিকানা</label>
+          <input style={styles.input} placeholder="ঠিকানা..." value={filters.address}
+            onChange={e => setFilters(f => ({ ...f, address: e.target.value }))} /></div>
+        <div><label style={styles.label}>স্ত্রী/স্বামী</label>
+          <input style={styles.input} placeholder="স্পাউস..." value={filters.spouse}
+            onChange={e => setFilters(f => ({ ...f, spouse: e.target.value }))} /></div>
+        <div><label style={styles.label}>সন্তান/ভাইবোন</label>
+          <input style={styles.input} placeholder="পরিবার..." value={filters.family}
+            onChange={e => setFilters(f => ({ ...f, family: e.target.value }))} /></div>
+        <div><label style={styles.label}>🕉 দীক্ষা গুরু · Filter by Guru</label>
+          <select style={styles.input} value={filters.guru}
+            onChange={e => setFilters(f => ({ ...f, guru: e.target.value }))}>
+            <option value="">সকল গুরু · All Gurus</option>
+            {gurus.map(g => <option key={g} value={g}>{g}</option>)}
+          </select></div>
+        <div><label style={styles.label}>রসিদ নং</label>
+          <input style={styles.input} placeholder="রসিদ..." value={filters.receipt}
+            onChange={e => setFilters(f => ({ ...f, receipt: e.target.value }))} /></div>
+        <div><label style={styles.label}>বকেয়া</label>
+          <select style={styles.input} value={filters.due}
+            onChange={e => setFilters(f => ({ ...f, due: e.target.value }))}>
+            <option value="">সকল ভক্ত</option>
+            <option value="due">বকেয়া আছে</option>
+            <option value="paid">পরিশোধিত</option>
+          </select></div>
+      </div>
+      {hasFilters && (
+        <button style={{ ...styles.linkBtn, marginTop: 12, color: "#a02828" }}
+          onClick={() => setFilters({ name:"", mobile:"", address:"", spouse:"", family:"", guru:"", receipt:"", due:"" })}>
+          ✕ সব ফিল্টার মুছুন
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROFILE PAGE (with FIXED PRINT)
+// ═══════════════════════════════════════════════════════════════
+function ProfilePage({ devotee, donations, onClose, onEdit, onCellClick, onSendReminder, isAdmin }) {
+  if (!devotee) return null;
+  const [profileYear, setProfileYear] = useState(CURRENT_YEAR);
+
+  const devoteeYears = [...new Set(donations.filter(d => d.DevoteeRow == devotee._row).map(d => parseInt(d.Year)))];
+  const allYears = [...new Set([...devoteeYears, CURRENT_YEAR])].sort((a, b) => b - a);
+
+  const dueMonths = getDueMonths(donations, devotee._row, profileYear);
+  const totalPaid = getTotalForYear(donations, devotee._row, profileYear);
+  const yearDonations = donations.filter(d => d.DevoteeRow == devotee._row && d.Year == profileYear);
+  const monthsPaid = yearDonations.filter(d => d.Amount && d.Amount != 0).length;
+  const avgDonation = monthsPaid > 0 ? Math.round(totalPaid / monthsPaid) : 0;
+  const maxAmount = Math.max(1, ...MONTHS.map(m => {
+    const e = getDonation(donations, devotee._row, profileYear, m);
+    return e ? parseFloat(e.Amount) || 0 : 0;
+  }));
+  const lifetimeTotal = donations.filter(d => d.DevoteeRow == devotee._row)
+    .reduce((s, d) => s + (parseFloat(d.Amount) || 0), 0);
+
+  const initials = (devotee.Name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const callPhone = (num) => { if (num) window.location.href = `tel:${num}`; };
+
+  // ─── PRINT FIX: open new window with clean printable HTML ───
+  const handlePrint = () => {
+    const w = window.open("", "_blank", "width=900,height=700");
+    const fmtAmount = (a) => `৳${(parseFloat(a) || 0).toLocaleString()}`;
+    
+    const monthRows = MONTHS.map(m => {
+      const entry = getDonation(donations, devotee._row, profileYear, m);
+      const amt = entry ? parseFloat(entry.Amount) || 0 : 0;
+      return `<tr>
+        <td>${MONTHS_BN[m]} (${m})</td>
+        <td style="text-align:center;">${amt > 0 ? fmtAmount(amt) : "<span style='color:#a02828'>বকেয়া</span>"}</td>
+        <td style="text-align:center; font-family:monospace;">${entry?.ReceiptNo || "—"}</td>
+        <td style="text-align:center; font-family:monospace;">${entry?.Date || "—"}</td>
+      </tr>`;
+    }).join("");
+    
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${devotee.Name} - Donation Profile</title>
+<style>
+  @page { margin: 1.5cm; size: A4; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Noto Serif Bengali', Georgia, serif; color: #3d2817; padding: 0; margin: 0; }
+  .hdr { text-align: center; border-bottom: 3px double #8b4513; padding-bottom: 14px; margin-bottom: 20px; }
+  .hdr h1 { margin: 0; color: #5a2a0c; font-size: 22px; }
+  .hdr .sub { font-size: 12px; color: #a87145; margin-top: 4px; letterspacing: 2px; }
+  .hdr .om { font-size: 32px; color: #c9893d; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .info { padding: 12px; background: #fef6e8; border-left: 3px solid #c9893d; border-radius: 4px; }
+  .info .label { font-size: 10px; color: #8b6f47; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .info .value { font-size: 14px; color: #3d2817; font-weight: 600; margin-top: 3px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+  .stat { text-align: center; padding: 12px; border: 1px solid #d4a574; border-radius: 6px; background: #fffdf7; }
+  .stat .num { font-size: 18px; font-weight: 800; color: #8b4513; }
+  .stat .lbl { font-size: 10px; color: #8b6f47; margin-top: 3px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #d4a574; font-size: 12px; }
+  th { background: #f5e6c8; color: #5a2a0c; font-weight: 700; }
+  .total-row { background: #8b4513; color: #fff5e0; font-weight: 800; }
+  .total-row td { color: #fff5e0; }
+  .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #a87145; border-top: 1px solid #d4a574; padding-top: 14px; }
+  .due-alert { background: #fde8e8; padding: 10px; border-left: 3px solid #a02828; color: #a02828; margin-top: 14px; border-radius: 4px; font-size: 12px; }
+</style></head>
+<body>
+<div class="hdr">
+  <div class="om">🕉</div>
+  <h1>রামকৃষ্ণ আশ্রম ও রামকৃষ্ণ মিশন, ময়মনসিংহ</h1>
+  <div class="sub">RAMAKRISHNA ASHRAM &amp; MISSION, MYMENSINGH · মাসিক চাঁদা পঞ্জিকা</div>
+  <div style="margin-top:10px; padding:6px 0; background:#fef6e8; font-weight:700; color:#5a2a0c; font-size:14px;">
+    ভক্ত প্রোফাইল · ${profileYear}
+  </div>
+</div>
+
+<div class="grid">
+  <div class="info"><div class="label">নাম · Name</div><div class="value">${devotee.Name}</div></div>
+  <div class="info"><div class="label">মোবাইল · Mobile</div><div class="value">${devotee.Mobile || "—"}</div></div>
+  <div class="info" style="grid-column: 1 / -1;"><div class="label">ঠিকানা · Address</div><div class="value">${devotee.Address || "—"}</div></div>
+  <div class="info"><div class="label">স্ত্রী/স্বামী · Spouse</div><div class="value">${devotee.SpouseName || "—"} ${devotee.SpouseMobile ? "(" + devotee.SpouseMobile + ")" : ""}</div></div>
+  <div class="info"><div class="label">দীক্ষা গুরু · Guru</div><div class="value">${devotee.InitiationGuru || "—"}</div></div>
+  <div class="info" style="grid-column: 1 / -1;"><div class="label">সন্তান/ভাইবোন · Family</div><div class="value">${devotee.ChildrenSiblings || "—"}</div></div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="num">${fmtAmount(totalPaid)}</div><div class="lbl">মোট দান</div></div>
+  <div class="stat"><div class="num">${monthsPaid}/12</div><div class="lbl">মাস পরিশোধিত</div></div>
+  <div class="stat"><div class="num">${dueMonths.length}</div><div class="lbl">বকেয়া মাস</div></div>
+  <div class="stat"><div class="num">${fmtAmount(lifetimeTotal)}</div><div class="lbl">আজীবন মোট</div></div>
+</div>
+
+<h3 style="color:#5a2a0c; border-bottom: 2px solid #c9893d; padding-bottom: 6px;">মাসিক চাঁদা বিবরণ · ${profileYear}</h3>
+<table>
+  <thead><tr><th>মাস · Month</th><th style="text-align:center;">পরিমাণ</th><th style="text-align:center;">রসিদ নং</th><th style="text-align:center;">তারিখ</th></tr></thead>
+  <tbody>${monthRows}</tbody>
+  <tfoot><tr class="total-row"><td>সর্বমোট · TOTAL</td><td style="text-align:center;">${fmtAmount(totalPaid)}</td><td colspan="2"></td></tr></tfoot>
+</table>
+
+${dueMonths.length > 0 ? `<div class="due-alert">⚠ <strong>${dueMonths.length} মাসের চাঁদা বকেয়া:</strong> ${dueMonths.map(m => MONTHS_BN[m]).join(", ")}</div>` : ""}
+
+<div class="footer">
+  ❦ ॐ ❦<br/>
+  রামকৃষ্ণ আশ্রম ও রামকৃষ্ণ মিশন, ময়মনসিংহ · মাসিক চাঁদা পঞ্জিকা<br/>
+  প্রিন্টের তারিখ: ${new Date().toLocaleDateString("bn-BD")} · "যত মত, তত পথ" — শ্রী শ্রী রামকৃষ্ণ
+</div>
+
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+</body></html>`;
+    
+    w.document.write(html);
+    w.document.close();
+  };
+
+  return (
+    <div style={styles.profileOverlay} className="no-print" onClick={onClose}>
+      <div style={styles.profilePage} onClick={e => e.stopPropagation()}>
+        <div style={styles.profileTopBar}>
+          <button style={styles.backBtn} onClick={onClose}>← ফিরে যান</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {dueMonths.length > 0 && (
+              <button style={{ ...styles.actionBtn, background: "linear-gradient(135deg, #c0392b, #a02828)" }}
+                onClick={() => onSendReminder(devotee, profileYear)}>📨 স্মরণিকা</button>
+            )}
+            <button style={styles.actionBtn} onClick={handlePrint}>🖨 প্রিন্ট</button>
+            {isAdmin && <button style={styles.actionBtn} onClick={() => onEdit(devotee)}>✎ সম্পাদনা</button>}
+          </div>
+        </div>
+
+        <div style={styles.profileHero}>
+          <div style={styles.profileAvatar}>{initials}</div>
+          <h1 style={styles.profileName}>{devotee.Name}</h1>
+          <div style={styles.profileSubtitle}>
+            {devotee.InitiationGuru ? `🕉 দীক্ষা গুরু: ${devotee.InitiationGuru}` : "🙏 ভক্ত · Devotee"}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 13, color: "#ffd591" }}>
+            🪷 আজীবন মোট দান: <strong style={{ color: "#fff5e0" }}>৳{lifetimeTotal.toLocaleString()}</strong>
+          </div>
+        </div>
+
+        <div style={styles.yearSelector}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#5a2a0c" }}>📅 বছর:</span>
+          {allYears.map(y => (
+            <button key={y} onClick={() => setProfileYear(y)}
+              style={{ ...styles.yearBtn, ...(profileYear === y ? styles.yearBtnActive : {}) }}>
+              {toBn(y)}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.statsRow}>
+          <div style={styles.statBox}>
+            <div style={{ ...styles.statNum, color: "#27632a" }}>৳{totalPaid.toLocaleString()}</div>
+            <div style={styles.statLabel}>মোট দান · {toBn(profileYear)}</div>
+          </div>
+          <div style={styles.statBox}>
+            <div style={{ ...styles.statNum, color: "#8b4513" }}>{toBn(monthsPaid)}/১২</div>
+            <div style={styles.statLabel}>মাস পরিশোধিত</div>
+          </div>
+          <div style={styles.statBox}>
+            <div style={{ ...styles.statNum, color: dueMonths.length > 0 ? "#a02828" : "#27632a" }}>
+              {toBn(dueMonths.length)}
+            </div>
+            <div style={styles.statLabel}>বকেয়া মাস</div>
+          </div>
+          <div style={styles.statBox}>
+            <div style={{ ...styles.statNum, color: "#5a3a8a" }}>৳{avgDonation.toLocaleString()}</div>
+            <div style={styles.statLabel}>গড় চাঁদা</div>
+          </div>
+        </div>
+
+        <div style={styles.profileGrid}>
+          <div style={styles.profileCard}>
+            <h3 style={styles.profileSectionTitle}>📋 ব্যক্তিগত তথ্য</h3>
+            <div style={styles.contactBlock}>
+              <div style={styles.contactLabel}>📞 মোবাইল</div>
+              {devotee.Mobile ? (
+                <div style={styles.contactValue}>
+                  <strong>{devotee.Mobile}</strong>
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    <button style={styles.miniBtn} onClick={() => callPhone(devotee.Mobile)}>📞 কল</button>
+                    <button style={{ ...styles.miniBtn, background: "linear-gradient(135deg, #25d366, #128c7e)" }}
+                      onClick={() => onSendReminder(devotee, profileYear)}>💬 WhatsApp</button>
+                  </div>
+                </div>
+              ) : <div style={{ color: "#bbb" }}>—</div>}
+            </div>
+            <div style={styles.contactBlock}>
+              <div style={styles.contactLabel}>🏠 ঠিকানা</div>
+              <div style={{ ...styles.contactValue, whiteSpace: "pre-wrap" }}>
+                {devotee.Address || <span style={{ color: "#bbb" }}>—</span>}
+              </div>
+            </div>
+            <h3 style={{ ...styles.profileSectionTitle, marginTop: 22 }}>👨‍👩‍👧 পরিবার</h3>
+            <div style={styles.contactBlock}>
+              <div style={styles.contactLabel}>স্ত্রী/স্বামীর নাম</div>
+              <div style={styles.contactValue}>{devotee.SpouseName || <span style={{ color: "#bbb" }}>—</span>}</div>
+            </div>
+            <div style={styles.contactBlock}>
+              <div style={styles.contactLabel}>স্ত্রী/স্বামীর মোবাইল</div>
+              {devotee.SpouseMobile ? (
+                <div style={styles.contactValue}>
+                  <strong>{devotee.SpouseMobile}</strong>
+                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    <button style={styles.miniBtn} onClick={() => callPhone(devotee.SpouseMobile)}>📞 কল</button>
+                  </div>
+                </div>
+              ) : <div style={{ color: "#bbb" }}>—</div>}
+            </div>
+            <div style={styles.contactBlock}>
+              <div style={styles.contactLabel}>সন্তান/ভাইবোন</div>
+              <div style={{ ...styles.contactValue, whiteSpace: "pre-wrap" }}>
+                {devotee.ChildrenSiblings || <span style={{ color: "#bbb" }}>—</span>}
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.profileCard}>
+            <h3 style={styles.profileSectionTitle}>📊 চাঁদার ইতিহাস · {toBn(profileYear)}</h3>
+            <div style={styles.chartContainer}>
+              {MONTHS.map(m => {
+                const entry = getDonation(donations, devotee._row, profileYear, m);
+                const amt = entry ? parseFloat(entry.Amount) || 0 : 0;
+                const heightPct = (amt / maxAmount) * 100;
+                const isCurrent = profileYear == CURRENT_YEAR && m === MONTHS[CURRENT_MONTH];
+                const past = profileYear < CURRENT_YEAR || (profileYear == CURRENT_YEAR && MONTHS.indexOf(m) <= CURRENT_MONTH);
+                const isDue = !amt && past;
+                return (
+                  <div key={m} style={styles.chartCol} onClick={() => isAdmin && onCellClick(devotee, profileYear, m, entry)}>
+                    <div style={styles.chartBarWrap}>
+                      {amt > 0 ? (
+                        <div style={{
+                          ...styles.chartBar,
+                          height: `${Math.max(heightPct, 8)}%`,
+                          background: isCurrent ? "linear-gradient(180deg, #ffd591, #c9893d)" : "linear-gradient(180deg, #b5d4a0, #27632a)",
+                        }}>
+                          <div style={styles.chartAmount}>৳{amt}</div>
+                        </div>
+                      ) : isDue ? (
+                        <div style={{ ...styles.chartBar, height: "8%",
+                          background: "repeating-linear-gradient(45deg, #fde8e8, #fde8e8 4px, #f5c4c4 4px, #f5c4c4 8px)" }}></div>
+                      ) : null}
+                    </div>
+                    <div style={styles.chartLabel}>
+                      <div style={{ fontSize: 10 }}>{MONTHS_BN[m].slice(0, 3)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#8b4513", marginBottom: 8 }}>মাসিক বিবরণ</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
+                {MONTHS.map(m => {
+                  const entry = getDonation(donations, devotee._row, profileYear, m);
+                  const amt = entry ? parseFloat(entry.Amount) || 0 : 0;
+                  const paid = amt > 0;
+                  const past = profileYear < CURRENT_YEAR || (profileYear == CURRENT_YEAR && MONTHS.indexOf(m) <= CURRENT_MONTH);
+                  return (
+                    <div key={m} onClick={() => isAdmin && onCellClick(devotee, profileYear, m, entry)}
+                      style={{
+                        padding: "8px 10px", borderRadius: 6,
+                        background: paid ? "#e0f0d8" : (past ? "#fde8e8" : "#f5e6c8"),
+                        color: paid ? "#27632a" : (past ? "#a02828" : "#8b6f47"),
+                        border: `1px solid ${paid ? "#b5d4a0" : (past ? "#e8b8b8" : "#d4a574")}`,
+                        fontSize: 11, cursor: isAdmin ? "pointer" : "default"
+                      }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginBottom: 2 }}>
+                        <span>{MONTHS_BN[m].slice(0, 4)}</span>
+                        <span>{paid ? `৳${amt}` : (past ? "বকেয়া" : "—")}</span>
+                      </div>
+                      {paid && entry.ReceiptNo && <div style={{ fontSize: 10, opacity: 0.8 }}>রসিদ: {entry.ReceiptNo}</div>}
+                      {paid && entry.Date && <div style={{ fontSize: 10, opacity: 0.7 }}>📅 {entry.Date}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {dueMonths.length > 0 && (
+              <div style={styles.dueAlert}>
+                ⚠ <strong>{toBn(dueMonths.length)} মাসের চাঁদা বকেয়া:</strong>
+                <div style={{ marginTop: 4 }}>{dueMonths.map(m => MONTHS_BN[m]).join(", ")}</div>
+                <button style={{ ...styles.miniBtn, marginTop: 10, background: "linear-gradient(135deg, #c0392b, #a02828)" }}
+                  onClick={() => onSendReminder(devotee, profileYear)}>📨 স্মরণিকা পাঠান</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS PAGE (hidden, for changing URL/password/cover)
+// ═══════════════════════════════════════════════════════════════
+function SettingsPage({ url, password, coverUrl, onSave, onClose, onLogout }) {
+  const [u, setU] = useState(url);
+  const [p, setP] = useState(password);
+  const [c, setC] = useState(coverUrl || "");
+
+  const handleCoverUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setC(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={{ ...styles.modal, maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalHeader}>
+          <h3 style={{ margin: 0, color: "#fff5e0", fontSize: 17 }}>⚙ সেটিংস · Settings</h3>
+          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: 22 }}>
+          <div style={{ background: "#fff3cd", border: "1px solid #ffc107", padding: "10px 14px", borderRadius: 6, fontSize: 12, color: "#856404", marginBottom: 16 }}>
+            ⚠ <strong>সতর্কতা:</strong> এই পৃষ্ঠা শুধুমাত্র অ্যাডমিনদের জন্য। ভুল মান প্রবেশ করালে সাইট কাজ করবে না।
+          </div>
+
+          <label style={styles.label}>🔗 Apps Script Web App URL</label>
+          <input style={styles.input} value={u} onChange={e => setU(e.target.value)} />
+
+          <label style={{ ...styles.label, marginTop: 14 }}>🔐 পাসওয়ার্ড</label>
+          <input type="password" style={styles.input} value={p} onChange={e => setP(e.target.value)} />
+
+          <label style={{ ...styles.label, marginTop: 14 }}>🖼 কভার ছবি · Cover Image</label>
+          <input type="file" accept="image/*" onChange={handleCoverUpload}
+            style={{ ...styles.input, padding: 7 }} />
+          <p style={{ fontSize: 11, color: "#a87145", marginTop: 4, fontStyle: "italic" }}>
+            💡 সেরা সাইজ: 1600 × 500 পিক্সেল। সর্বোচ্চ ~2MB।
+          </p>
+          {c && (
+            <div style={{ marginTop: 10 }}>
+              <img src={c} style={{ width: "100%", maxHeight: 150, objectFit: "cover", borderRadius: 8, border: "1px solid #d4a574" }} />
+              <button style={{ ...styles.linkBtn, marginTop: 6, color: "#a02828" }} onClick={() => setC("")}>
+                ✕ ছবি মুছুন
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => onSave(u, p, c)}>
+                ✓ সংরক্ষণ
+              </button>
+              <button style={{ ...styles.btn, ...styles.btnGhost }} onClick={onClose}>বাতিল</button>
+            </div>
+            <button style={{ ...styles.btn, background: "#fde8e8", color: "#a02828", border: "1.5px solid #e8b8b8" }}
+              onClick={() => { if (confirm("লগআউট করবেন?")) onLogout(); }}>
+              🚪 লগআউট
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════
+function App() {
+  const [auth, setAuth] = useState({ url: localStorage.getItem(URL_KEY) || "", pw: localStorage.getItem(PW_KEY) || "", loggedIn: false });
+  const [coverUrl, setCoverUrl] = useState(localStorage.getItem(COVER_KEY) || DEFAULT_COVER);
+  const [devotees, setDevotees] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [filters, setFilters] = useState({ name:"", mobile:"", address:"", spouse:"", family:"", guru:"", receipt:"", due:"" });
+  const [year, setYear] = useState(CURRENT_YEAR);
+  const [tab, setTab] = useState("dashboard");
+  const [editData, setEditData] = useState(null);
+  const [profileDevotee, setProfileDevotee] = useState(null);
+  const [donationModal, setDonationModal] = useState(null);
+  const [reminderModal, setReminderModal] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const isAdmin = true; // Single password = admin
+  const showMsg = (text) => { setMsg(text); setTimeout(() => setMsg(""), 3000); };
+
+  // Auto-login if creds exist
+  useEffect(() => {
+    if (auth.url && auth.pw && !auth.loggedIn) {
+      (async () => {
+        try {
+          const res = await fetch(auth.url, {
+            method: "POST",
+            body: JSON.stringify({ action: "login", pw: auth.pw }),
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+          });
+          const json = await res.json();
+          if (json.status === "ok") setAuth(a => ({ ...a, loggedIn: true }));
+          else { localStorage.removeItem(PW_KEY); }
+        } catch {}
+      })();
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    if (!auth.url || !auth.pw) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${auth.url}?pw=${encodeURIComponent(auth.pw)}`);
+      const json = await res.json();
+      if (json.status === "ok") {
+        setDevotees(json.devotees || []);
+        setDonations(json.donations || []);
+      } else if (json.message === "Unauthorized") {
+        showMsg("⚠ Authentication failed");
+        setAuth({ url: auth.url, pw: "", loggedIn: false });
+        localStorage.removeItem(PW_KEY);
+      }
+    } catch {
+      showMsg("⚠ লোড ব্যর্থ");
+    }
+    setLoading(false);
+  }, [auth.url, auth.pw]);
+
+  const postData = async (payload) => {
+    try {
+      await fetch(auth.url, {
+        method: "POST",
+        body: JSON.stringify({ ...payload, pw: auth.pw }),
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+      });
+      return true;
+    } catch { showMsg("⚠ ব্যর্থ"); return false; }
+  };
+
+  useEffect(() => { if (auth.loggedIn) fetchData(); }, [auth.loggedIn, fetchData]);
+
+  useEffect(() => {
+    if (profileDevotee) {
+      const updated = devotees.find(d => d._row === profileDevotee._row);
+      if (updated) setProfileDevotee(updated);
+    }
+  }, [devotees]);
+
+  const availableYears = useMemo(() => {
+    const ys = new Set([CURRENT_YEAR]);
+    donations.forEach(d => { if (d.Year) ys.add(parseInt(d.Year)); });
+    return [...ys].sort((a, b) => b - a);
+  }, [donations]);
+
+  const allGurus = useMemo(() => {
+    return [...new Set(devotees.map(d => d.InitiationGuru).filter(Boolean))].sort();
+  }, [devotees]);
+
+  const handleAddDevotee = async (form) => {
+    const ok = await postData({ action: "addDevotee", ...form });
+    if (ok) { showMsg("✓ যোগ হয়েছে"); setTab("devotees"); setTimeout(fetchData, 600); }
+  };
+
+  const handleEditDevotee = async (form) => {
+    for (const key of INFO_FIELDS) {
+      if (form[key] !== editData[key]) {
+        await postData({ action: "updateDevotee", _row: editData._row, field: key, value: form[key] });
+      }
+    }
+    showMsg("✓ আপডেট"); setEditData(null); setTab("devotees"); setTimeout(fetchData, 600);
+  };
+
+  const handleDeleteDevotee = async (devotee) => {
+    if (!confirm(`${devotee.Name} এবং সব রেকর্ড মুছে ফেলবেন?`)) return;
+    await postData({ action: "deleteDevotee", _row: devotee._row });
+    showMsg("✓ মুছে ফেলা হয়েছে");
+    setProfileDevotee(null);
+    setTimeout(fetchData, 600);
+  };
+
+  const handleCellClick = (devotee, year, month, existing) => {
+    if (!isAdmin) return;
+    setDonationModal({ devotee, year, month, existing });
+  };
+
+  const handleSaveDonation = async ({ amount, receiptNo, date }) => {
+    const { devotee, year, month, existing } = donationModal;
+    if (!amount || amount == 0) {
+      if (existing) await postData({ action: "deleteDonation", _row: existing._row });
+      showMsg("✓ মুছে ফেলা হয়েছে");
+    } else if (existing) {
+      await postData({ action: "updateDonation", _row: existing._row, Amount: amount, ReceiptNo: receiptNo, Date: date });
+      showMsg("✓ আপডেট");
+    } else {
+      await postData({ action: "addDonation", DevoteeRow: devotee._row, Year: year, Month: month, Amount: amount, ReceiptNo: receiptNo, Date: date });
+      showMsg(`✓ ${MONTHS_BN[month]} সংরক্ষিত`);
+    }
+    setDonationModal(null);
+    setTimeout(fetchData, 600);
+  };
+
+  const handleDeleteDonation = async () => {
+    const { existing } = donationModal;
+    if (existing) {
+      await postData({ action: "deleteDonation", _row: existing._row });
+      showMsg("✓ মুছে ফেলা হয়েছে");
+    }
+    setDonationModal(null);
+    setTimeout(fetchData, 600);
+  };
+
+  const handleLogin = (url, pw) => {
+    setAuth({ url, pw, loggedIn: true });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(PW_KEY);
+    setAuth({ url: auth.url, pw: "", loggedIn: false });
+    setShowSettings(false);
+  };
+
+  const handleSaveSettings = (newUrl, newPw, newCover) => {
+    localStorage.setItem(URL_KEY, newUrl);
+    localStorage.setItem(PW_KEY, newPw);
+    if (newCover) localStorage.setItem(COVER_KEY, newCover);
+    else localStorage.removeItem(COVER_KEY);
+    setAuth({ url: newUrl, pw: newPw, loggedIn: true });
+    setCoverUrl(newCover);
+    setShowSettings(false);
+    showMsg("✓ সেটিংস সংরক্ষিত");
+    setTimeout(fetchData, 500);
+  };
+
+  const matchField = (val, q) => (val || "").toString().toLowerCase().includes((q || "").toLowerCase());
+
+  const filtered = devotees.filter(d => {
+    if (filters.name && !matchField(d.Name, filters.name)) return false;
+    if (filters.mobile && !(d.Mobile || "").toString().includes(filters.mobile) && !(d.SpouseMobile || "").toString().includes(filters.mobile)) return false;
+    if (filters.address && !matchField(d.Address, filters.address)) return false;
+    if (filters.spouse && !matchField(d.SpouseName, filters.spouse)) return false;
+    if (filters.family && !matchField(d.ChildrenSiblings, filters.family)) return false;
+    if (filters.guru && d.InitiationGuru !== filters.guru) return false;
+    if (filters.receipt) {
+      const hasReceipt = donations.some(don => don.DevoteeRow == d._row && matchField(don.ReceiptNo, filters.receipt));
+      if (!hasReceipt) return false;
+    }
+    if (filters.due) {
+      const hasDue = getDueMonths(donations, d._row, year).length > 0;
+      if (filters.due === "due" && !hasDue) return false;
+      if (filters.due === "paid" && hasDue) return false;
+    }
+    return true;
+  });
+
+  // ─── LOGIN GATE ───
+  if (!auth.loggedIn) {
+    return <LoginScreen onLogin={handleLogin} defaultUrl={auth.url} coverUrl={coverUrl} />;
+  }
+
+  return (
+    <div className="app-shell" style={styles.page}>
+      {/* Cover banner */}
+      {coverUrl && (
+        <div style={{ width: "100%", height: 200, position: "relative", overflow: "hidden", zIndex: 2 }} className="no-print">
+          <img src={coverUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="cover" />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.1), rgba(139, 69, 19, 0.6))" }}></div>
+        </div>
+      )}
+
+      <header style={styles.header} className="no-print">
+        <div style={styles.headerBand}></div>
+        <div style={styles.headerInner}>
+          <div style={styles.headerCenter}>
+            <div style={{ fontSize: 36, marginBottom: 4 }}>🕉</div>
+            <h1 style={styles.title}>রামকৃষ্ণ আশ্রম ও রামকৃষ্ণ মিশন</h1>
+            <div style={styles.titleSub}>ময়মনসিংহ · MYMENSINGH</div>
+            <div style={styles.divider}>
+              <span style={{ color: "#ffd591" }}>❦</span>
+              <span style={{ margin: "0 14px", letterSpacing: "3px", fontSize: 11, color: "#ffd591" }}>মাসিক চাঁদা পঞ্জিকা</span>
+              <span style={{ color: "#ffd591" }}>❦</span>
+            </div>
+          </div>
+          {/* Settings - hidden in corner, requires double-click */}
+          <button onDoubleClick={() => setShowSettings(true)}
+            title="ডাবল-ক্লিক করুন · Double-click for settings"
+            style={styles.settingsCorner}>
+            ⚙
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div style={styles.tabsRow}>
+          {[
+            { id: "dashboard", label: "📊 ড্যাশবোর্ড", labelEn: "Dashboard" },
+            { id: "devotees", label: "📜 ভক্তবৃন্দ", labelEn: "Devotees" },
+            { id: "ledger", label: "📑 খতিয়ান", labelEn: "Ledger" },
+            { id: "dues", label: `🔔 বকেয়া`, labelEn: "Current Dues", badge: true },
+            { id: "add", label: "✚ যোগ", labelEn: "Add" },
+          ].map(t => {
+            const isThisMonthDue = t.badge ? devotees.filter(d => {
+              const e = getDonation(donations, d._row, CURRENT_YEAR, MONTHS[CURRENT_MONTH]);
+              return !e || !e.Amount || e.Amount == 0;
+            }).length : 0;
+            return (
+              <button key={t.id} onClick={() => { setTab(t.id); setEditData(null); }}
+                style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabActive : {}) }}>
+                {t.label}
+                {t.badge && isThisMonthDue > 0 && (
+                  <span style={styles.tabBadge}>{toBn(isThisMonthDue)}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={styles.headerBand}></div>
+      </header>
+
+      <main style={styles.main} className="print-area">
+        {msg && <div style={styles.toast} className="no-print">{msg}</div>}
+
+        {loading && <p style={styles.loading}>লোড হচ্ছে...</p>}
+
+        {tab === "dashboard" && (
+          <Dashboard devotees={devotees} donations={donations} year={year}
+            onNavigate={(t) => setTab(t)} />
+        )}
+        {tab === "devotees" && (
+          <>
+            <SearchBar filters={filters} setFilters={setFilters}
+              year={year} setYear={setYear}
+              availableYears={availableYears} gurus={allGurus} />
+            <DevoteeTable devotees={filtered} donations={donations} year={year}
+              onView={d => setProfileDevotee(d)}
+              onEdit={d => { setEditData(d); setTab("edit"); }}
+              onCellClick={handleCellClick} onDelete={handleDeleteDevotee} />
+            <p style={styles.hint}>
+              💡 নাম বা মোবাইল ক্লিক করে প্রোফাইল · মাস কলামে ক্লিক করে চাঁদা/রসিদ যোগ
+            </p>
+          </>
+        )}
+        {tab === "ledger" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#fef6e8", padding: "6px 14px", borderRadius: 10, border: "1.5px solid #c9893d" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#5a2a0c" }}>📅 বছর:</span>
+                <select value={year} onChange={e => setYear(parseInt(e.target.value))}
+                  style={{ padding: "5px 12px", border: "1px solid #d4a574", borderRadius: 6, background: "#fff", fontSize: 14, fontWeight: 700, color: "#8b4513", fontFamily: "inherit" }}>
+                  {availableYears.map(y => <option key={y} value={y}>{toBn(y)} · {y}</option>)}
+                </select>
+              </div>
+            </div>
+            <Ledger devotees={devotees} donations={donations} year={year} />
+          </>
+        )}
+        {tab === "dues" && (
+          <DuesView devotees={devotees} donations={donations}
+            onView={d => setProfileDevotee(d)}
+            onSendReminder={(d, y) => setReminderModal({ devotee: d, year: y })} />
+        )}
+        {tab === "add" && <DevoteeForm onSubmit={handleAddDevotee} onCancel={() => setTab("devotees")} />}
+        {tab === "edit" && editData && (
+          <DevoteeForm editData={editData} onSubmit={handleEditDevotee}
+            onCancel={() => { setTab("devotees"); setEditData(null); }} />
+        )}
+
+        {profileDevotee && (
+          <ProfilePage devotee={profileDevotee} donations={donations}
+            onClose={() => setProfileDevotee(null)}
+            onEdit={d => { setEditData(d); setTab("edit"); setProfileDevotee(null); }}
+            onCellClick={handleCellClick}
+            onSendReminder={(d, y) => setReminderModal({ devotee: d, year: y })}
+            isAdmin={isAdmin} />
+        )}
+
+        {donationModal && (
+          <DonationEntryModal {...donationModal}
+            onSave={handleSaveDonation} onDelete={handleDeleteDonation}
+            onClose={() => setDonationModal(null)} />
+        )}
+
+        {reminderModal && (
+          <ReminderModal devotee={reminderModal.devotee} donations={donations}
+            year={reminderModal.year} onClose={() => setReminderModal(null)} />
+        )}
+
+        {showSettings && (
+          <SettingsPage url={auth.url} password={auth.pw} coverUrl={coverUrl}
+            onSave={handleSaveSettings} onClose={() => setShowSettings(false)} onLogout={handleLogout} />
+        )}
+      </main>
+
+      <footer style={styles.footer} className="no-print">
+        <div style={{ fontSize: 24, color: "rgba(180, 90, 30, 0.4)", marginBottom: 6 }}>❦ ॐ ❦</div>
+        <p style={{ margin: "4px 0", fontSize: 13 }}>
+          <strong>রামকৃষ্ণ আশ্রম ও রামকৃষ্ণ মিশন, ময়মনসিংহ</strong> — মাসিক চাঁদা পঞ্জিকা
+        </p>
+        <p style={{ margin: 0, fontSize: 11, color: "#a87145" }}>🔒 Secured · Powered by Google Sheets</p>
+      </footer>
+    </div>
+  );
+}
+
+const styles = {
+  page: { fontFamily: "'Noto Serif Bengali', 'Cormorant Garamond', Georgia, serif", minHeight: "100vh", color: "#3d2817", position: "relative" },
+
+  // Login
+  loginPage: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, position: "relative" },
+  loginCover: { width: "100%", maxWidth: 520, height: 160, objectFit: "cover", borderRadius: "12px 12px 0 0", boxShadow: "0 -2px 20px rgba(139, 69, 19, 0.2)" },
+  loginCard: { background: "linear-gradient(135deg, #fffaf0 0%, #fef6e8 100%)", padding: 32, borderRadius: 16, maxWidth: 460, width: "100%", boxShadow: "0 12px 40px rgba(139, 69, 19, 0.25)", border: "2px solid #c9893d" },
+  errorBox: { marginTop: 10, padding: "8px 12px", background: "#fde8e8", color: "#a02828", borderRadius: 6, fontSize: 13, border: "1px solid #e8b8b8" },
+
+  // Header
+  header: { background: "linear-gradient(135deg, #8b4513 0%, #a0522d 30%, #c9893d 60%, #b8651e 100%)", boxShadow: "0 4px 30px rgba(139, 69, 19, 0.4)", borderBottom: "3px solid #5a2a0c", position: "relative", zIndex: 2 },
+  headerBand: { height: 6, background: "repeating-linear-gradient(90deg, #5a2a0c 0 8px, #c9893d 8px 16px, #ffd591 16px 24px, #c9893d 24px 32px, #5a2a0c 32px 40px)" },
+  headerInner: { maxWidth: 1280, margin: "0 auto", padding: "20px 20px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 },
+  headerCenter: { textAlign: "center", flex: 1 },
+  title: { margin: 0, fontSize: 26, fontWeight: 700, color: "#fff5e0", letterSpacing: "1px", textShadow: "1px 2px 4px rgba(0,0,0,0.3)" },
+  titleSub: { fontSize: 12, color: "#ffd591", letterSpacing: "4px", marginTop: 4, textTransform: "uppercase", fontWeight: 600 },
+  divider: { display: "flex", alignItems: "center", justifyContent: "center", marginTop: 8 },
+  settingsCorner: { background: "rgba(255,245,224,0.1)", border: "1px solid rgba(255,213,145,0.3)", color: "#ffd591", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 14, opacity: 0.6, transition: "opacity 0.2s" },
+  tabsRow: { display: "flex", gap: 6, padding: "0 20px 14px", flexWrap: "wrap", justifyContent: "center" },
+  tabBtn: { padding: "8px 16px", border: "1.5px solid rgba(255, 213, 145, 0.4)", borderRadius: 8, background: "rgba(255, 245, 224, 0.1)", color: "#fff5e0", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit", position: "relative" },
+  tabActive: { background: "rgba(255, 213, 145, 0.25)", borderColor: "#ffd591", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" },
+  tabBadge: { background: "#a02828", color: "#fff", padding: "2px 7px", borderRadius: 10, fontSize: 10, fontWeight: 800, marginLeft: 6, display: "inline-block", animation: "pulse 2s infinite" },
+
+  main: { maxWidth: 1280, margin: "0 auto", padding: "24px 20px 40px", position: "relative", zIndex: 2 },
+  toast: { position: "fixed", top: 16, right: 16, background: "linear-gradient(135deg, #8b4513, #a0522d)", color: "#fff5e0", padding: "12px 22px", borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: "0 4px 20px rgba(139, 69, 19, 0.4)", zIndex: 999, animation: "fadeIn .3s", border: "1px solid #ffd591" },
+
+  // Cards
+  formCard: { background: "linear-gradient(135deg, #fffaf0 0%, #fef6e8 100%)", borderRadius: 12, padding: 28, boxShadow: "0 4px 20px rgba(139, 69, 19, 0.15)", border: "1px solid #d4a574", borderTop: "4px solid #c9893d" },
+  formTitle: { margin: "0 0 18px", fontSize: 20, color: "#5a2a0c", fontWeight: 700, textAlign: "center" },
+  sectionTitle: { fontSize: 12, fontWeight: 700, color: "#8b4513", marginTop: 18, marginBottom: 10, textTransform: "uppercase", letterSpacing: "2px", paddingBottom: 6, borderBottom: "1.5px dotted #c9893d" },
+  formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
+  searchCard: { background: "linear-gradient(135deg, #fffaf0 0%, #fef6e8 100%)", borderRadius: 12, padding: 22, marginBottom: 18, boxShadow: "0 4px 20px rgba(139, 69, 19, 0.12)", border: "1px solid #d4a574", borderTop: "4px solid #c9893d" },
+  searchGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 },
+
+  // Form
+  label: { display: "block", fontSize: 12, fontWeight: 700, marginBottom: 5, color: "#8b4513", letterSpacing: "0.3px", fontFamily: "inherit" },
+  input: { width: "100%", padding: "10px 13px", border: "1.5px solid #d4a574", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none", background: "#fffdf7", fontFamily: "inherit", color: "#3d2817" },
+  btn: { padding: "11px 26px", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  btnPrimary: { background: "linear-gradient(135deg, #8b4513 0%, #c9893d 100%)", color: "#fff5e0", boxShadow: "0 3px 10px rgba(139, 69, 19, 0.3)" },
+  btnGhost: { background: "transparent", border: "1.5px solid #c9893d", color: "#8b4513" },
+  linkBtn: { background: "none", border: "none", color: "#8b4513", fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", padding: 0, fontFamily: "inherit" },
+  iconBtn: { background: "rgba(201, 137, 61, 0.1)", border: "1px solid transparent", cursor: "pointer", fontSize: 14, padding: "4px 7px", borderRadius: 5 },
+  miniBtn: { background: "linear-gradient(135deg, #8b4513, #c9893d)", border: "none", color: "#fff5e0", padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit" },
+  clickableLink: { color: "#8b4513", textDecoration: "underline", cursor: "pointer", fontWeight: 700 },
+  toggleBtn: { padding: "8px 14px", border: "1.5px solid #d4a574", background: "#fffdf7", color: "#8b4513", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit" },
+  toggleBtnActive: { background: "linear-gradient(135deg, #8b4513, #c9893d)", color: "#fff5e0", border: "1.5px solid #5a2a0c" },
+  yearBtn: { padding: "5px 14px", border: "1.5px solid #d4a574", background: "#fffdf7", color: "#8b4513", borderRadius: 16, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit" },
+  yearBtnActive: { background: "linear-gradient(135deg, #8b4513, #c9893d)", color: "#fff5e0", border: "1.5px solid #5a2a0c", boxShadow: "0 2px 8px rgba(139, 69, 19, 0.3)" },
+  yearSelector: { display: "flex", gap: 8, padding: "12px 20px", background: "#fef6e8", borderBottom: "1px solid #d4a574", flexWrap: "wrap", alignItems: "center" },
+
+  // Table
+  tableWrap: { overflowX: "auto", borderRadius: 12, border: "1px solid #d4a574", boxShadow: "0 4px 20px rgba(139, 69, 19, 0.12)", background: "#fffdf7" },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  th: { padding: "12px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#8b4513", borderBottom: "2px solid #c9893d", whiteSpace: "nowrap", background: "#f5e6c8", fontFamily: "inherit" },
+  td: { padding: "10px 8px", borderBottom: "1px solid #ead7b0", whiteSpace: "nowrap", color: "#3d2817" },
+  tdName: { padding: "10px 8px", borderBottom: "1px solid #ead7b0", fontWeight: 700 },
+  rowEven: { background: "#fffdf7" },
+  rowOdd: { background: "#fef6e8" },
+  paid: { color: "#27632a", fontWeight: 700, fontSize: 12 },
+  unpaid: { color: "#c9a574", fontSize: 14 },
+  dueBadge: { display: "inline-block", background: "linear-gradient(135deg, #fde8e8, #f5c4c4)", color: "#a02828", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, border: "1px solid #e8b8b8" },
+  paidBadge: { display: "inline-block", background: "linear-gradient(135deg, #e0f0d8, #c4e0b5)", color: "#27632a", padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700, border: "1px solid #b5d4a0" },
+
+  // Dashboard
+  dashHeroGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 18 },
+  dashHero: { padding: "20px 22px", borderRadius: 14, color: "#fff5e0", boxShadow: "0 4px 18px rgba(139, 69, 19, 0.2)", position: "relative", overflow: "hidden" },
+  dashHeroIcon: { fontSize: 26, opacity: 0.85, marginBottom: 4 },
+  dashHeroNum: { fontSize: 30, fontWeight: 800, letterSpacing: "0.5px", textShadow: "1px 2px 4px rgba(0,0,0,0.2)" },
+  dashHeroLabel: { fontSize: 12, opacity: 0.92, marginTop: 4, letterSpacing: "0.3px" },
+  dashHeroDelta: { fontSize: 11, marginTop: 8, padding: "3px 10px", background: "rgba(255,255,255,0.2)", borderRadius: 12, display: "inline-block" },
+  dashCard: { background: "linear-gradient(135deg, #fffaf0 0%, #fef6e8 100%)", borderRadius: 12, padding: 20, boxShadow: "0 3px 14px rgba(139, 69, 19, 0.1)", border: "1px solid #d4a574", borderTop: "3px solid #c9893d" },
+  dashTitle: { margin: "0 0 14px", fontSize: 15, color: "#5a2a0c", fontWeight: 700, paddingBottom: 8, borderBottom: "1.5px dotted #c9893d" },
+  barChart: { display: "flex", alignItems: "flex-end", gap: 6, height: 180, padding: "10px 4px" },
+  barCol: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%" },
+  barWrap: { flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" },
+  bar: { width: "85%", borderRadius: "4px 4px 0 0", transition: "height 0.4s", minHeight: 0 },
+  barLabel: { textAlign: "center", marginTop: 6, color: "#5a2a0c" },
+  guruRow: { display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px dotted #d4a574" },
+  topDonor: { display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px dotted #d4a574" },
+  donorRank: { width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff5e0", fontWeight: 800, fontSize: 12 },
+
+  // Ledger
+  ledgerHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: 18, background: "linear-gradient(135deg, #8b4513, #c9893d)", borderRadius: "12px 12px 0 0", marginBottom: 0, flexWrap: "wrap", gap: 12, color: "#fff5e0" },
+  ledgerTotal: { textAlign: "right" },
+  ledgerWrap: { background: "#fffdf7", borderRadius: "0 0 12px 12px", border: "1px solid #d4a574", borderTop: "none", overflow: "auto", boxShadow: "0 4px 20px rgba(139, 69, 19, 0.12)" },
+
+  // Dues
+  duesAlert: { background: "linear-gradient(135deg, #c0392b 0%, #a02828 100%)", padding: "20px 24px", borderRadius: 14, marginBottom: 18, boxShadow: "0 4px 20px rgba(192, 57, 43, 0.3)", animation: "fadeIn .4s" },
+  dueAlert: { marginTop: 14, padding: "10px 14px", background: "linear-gradient(135deg, #fde8e8, #f5d4d4)", color: "#a02828", borderRadius: 8, fontSize: 13, border: "1px solid #e8b8b8" },
+
+  empty: { textAlign: "center", color: "#8b6f47", padding: 48, fontSize: 14, background: "#fffdf7", borderRadius: 12, border: "1px dashed #d4a574" },
+  loading: { textAlign: "center", color: "#8b6f47", padding: 24, fontSize: 14 },
+  hint: { textAlign: "center", color: "#a87145", fontSize: 12, marginTop: 14, fontStyle: "italic" },
+  footer: { textAlign: "center", padding: "30px 20px", fontSize: 12, color: "#8b6f47", borderTop: "1px solid rgba(180, 90, 30, 0.2)", marginTop: 30, position: "relative", zIndex: 2 },
+
+  // Modal
+  modalOverlay: { position: "fixed", inset: 0, background: "rgba(60, 30, 10, 0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16, animation: "fadeIn .2s", overflow: "auto" },
+  modal: { background: "linear-gradient(135deg, #fffaf0 0%, #fef6e8 100%)", borderRadius: 14, width: "100%", maxHeight: "92vh", overflow: "auto", boxShadow: "0 25px 70px rgba(60, 30, 10, 0.5)", border: "2px solid #c9893d" },
+  modalHeader: { background: "linear-gradient(135deg, #8b4513 0%, #c9893d 100%)", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #5a2a0c" },
+  closeBtn: { background: "rgba(255,245,224,0.2)", border: "1px solid rgba(255,213,145,0.4)", color: "#fff5e0", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 14, fontWeight: 700 },
+
+  // Profile
+  profileOverlay: { position: "fixed", inset: 0, background: "rgba(60, 30, 10, 0.7)", backdropFilter: "blur(6px)", overflow: "auto", zIndex: 1000, padding: "20px", animation: "fadeIn .25s" },
+  profilePage: { maxWidth: 1100, margin: "0 auto", background: "linear-gradient(135deg, #fffaf0 0%, #fef6e8 100%)", borderRadius: 16, overflow: "hidden", boxShadow: "0 30px 80px rgba(60, 30, 10, 0.5)", border: "2px solid #c9893d", animation: "slideUp .3s" },
+  profileTopBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 22px", background: "#fef6e8", borderBottom: "1px solid #d4a574", flexWrap: "wrap", gap: 8 },
+  backBtn: { background: "transparent", border: "1.5px solid #c9893d", color: "#8b4513", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit" },
+  actionBtn: { background: "linear-gradient(135deg, #8b4513, #c9893d)", border: "none", color: "#fff5e0", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit" },
+  profileHero: { background: "linear-gradient(135deg, #8b4513 0%, #a0522d 40%, #c9893d 100%)", padding: "32px 24px 26px", textAlign: "center", color: "#fff5e0", borderBottom: "4px solid #5a2a0c" },
+  profileAvatar: { width: 80, height: 80, margin: "0 auto 12px", borderRadius: "50%", background: "linear-gradient(135deg, #ffd591, #f5b970)", color: "#5a2a0c", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, boxShadow: "0 4px 16px rgba(0,0,0,0.25)", border: "4px solid #fff5e0" },
+  profileName: { margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: "0.5px", textShadow: "1px 2px 4px rgba(0,0,0,0.3)" },
+  profileSubtitle: { fontSize: 13, color: "#ffd591", marginTop: 6 },
+  statsRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: "#d4a574" },
+  statBox: { background: "#fffaf0", padding: "16px 14px", textAlign: "center" },
+  statNum: { fontSize: 21, fontWeight: 800, marginBottom: 4 },
+  statLabel: { fontSize: 11, color: "#8b6f47", fontWeight: 600 },
+  profileGrid: { display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 0 },
+  profileCard: { padding: "22px 24px", borderRight: "1px solid #d4a574" },
+  profileSectionTitle: { fontSize: 14, color: "#5a2a0c", fontWeight: 700, marginBottom: 14, paddingBottom: 8, borderBottom: "1.5px dotted #c9893d", letterSpacing: "0.5px" },
+  contactBlock: { marginBottom: 14, padding: "12px 14px", background: "#fffdf7", borderRadius: 8, border: "1px solid #ead7b0" },
+  contactLabel: { fontSize: 11, color: "#8b6f47", fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" },
+  contactValue: { fontSize: 14, color: "#3d2817", fontWeight: 500 },
+  chartContainer: { display: "flex", alignItems: "flex-end", gap: 4, height: 140, padding: "10px 4px", background: "#fffdf7", borderRadius: 8, border: "1px solid #ead7b0" },
+  chartCol: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", cursor: "pointer" },
+  chartBarWrap: { flex: 1, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "2px" },
+  chartBar: { width: "100%", borderRadius: "4px 4px 0 0", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 2, transition: "height 0.3s", minHeight: 4 },
+  chartAmount: { fontSize: 9, color: "#fff", fontWeight: 700, textShadow: "1px 1px 2px rgba(0,0,0,0.3)" },
+  chartLabel: { fontSize: 9, color: "#5a2a0c", marginTop: 4, textAlign: "center", fontWeight: 600 },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
